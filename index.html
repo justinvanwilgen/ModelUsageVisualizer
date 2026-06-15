@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LLM Model Visualizer — Cost vs Coding Capability</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: rgba(20, 25, 36, 0.85);
+    --panel-border: rgba(255, 255, 255, 0.08);
+    --text: #e6e9ef;
+    --text-dim: #9aa3b2;
+    --accent: #5ad1ff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+  .panel {
+    position: fixed;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  }
+
+  /* Header / title */
+  #header {
+    top: 16px;
+    left: 16px;
+    padding: 14px 18px;
+    max-width: 360px;
+  }
+  #header h1 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    letter-spacing: 0.2px;
+  }
+  #header p {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-dim);
+  }
+  #header .axes {
+    margin-top: 8px;
+    font-size: 11.5px;
+    color: var(--text-dim);
+  }
+  #header .axes b { color: var(--text); }
+
+  /* Legend */
+  #legend {
+    top: 16px;
+    right: 16px;
+    padding: 12px 14px;
+    min-width: 200px;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+  }
+  #legend h2 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+  }
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 4px 6px;
+    border-radius: 7px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+    font-size: 12.5px;
+  }
+  .legend-row:hover { background: rgba(255, 255, 255, 0.06); }
+  .legend-row.off { opacity: 0.35; }
+  .legend-row.off .count { text-decoration: line-through; }
+  .swatch {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
+  }
+  .legend-row .count {
+    margin-left: auto;
+    color: var(--text-dim);
+    font-size: 11px;
+  }
+  .legend-divider {
+    height: 1px;
+    background: var(--panel-border);
+    margin: 10px 0 8px;
+  }
+  .shape-key {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    padding: 3px 6px;
+  }
+  .shape-glyph {
+    width: 14px;
+    text-align: center;
+    color: var(--text);
+    font-size: 13px;
+  }
+
+  /* Warning */
+  #warning {
+    bottom: 16px;
+    left: 16px;
+    padding: 10px 13px;
+    max-width: 340px;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: #ffd9a8;
+    border-color: rgba(255, 180, 90, 0.25);
+    background: rgba(60, 40, 15, 0.7);
+  }
+  #warning b { color: #ffc777; }
+
+  /* Controls hint */
+  #hint {
+    bottom: 16px;
+    right: 16px;
+    padding: 9px 13px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  #hint kbd {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 10.5px;
+    color: var(--text);
+  }
+
+  /* Tooltip */
+  #tooltip {
+    position: fixed;
+    pointer-events: none;
+    z-index: 10;
+    padding: 11px 13px;
+    min-width: 200px;
+    max-width: 280px;
+    opacity: 0;
+    transform: translate(-50%, -115%);
+    transition: opacity 0.12s;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  #tooltip.visible { opacity: 1; }
+  #tooltip .tt-name {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 2px;
+  }
+  #tooltip .tt-provider {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 7px;
+  }
+  #tooltip .tt-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px 10px;
+  }
+  #tooltip .tt-grid .k { color: var(--text-dim); }
+  #tooltip .tt-grid .v { text-align: right; font-variant-numeric: tabular-nums; }
+  #tooltip .tt-variant {
+    margin-top: 7px;
+    font-size: 10.5px;
+    color: var(--text-dim);
+  }
+  #tooltip .tt-status {
+    margin-top: 4px;
+    font-size: 10.5px;
+    color: #ff9a8a;
+  }
+</style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="header" class="panel">
+    <h1>LLM Cost vs Coding Capability</h1>
+    <p>Interactive 3D map of large language models. Each point is a model, positioned by API price and SWE-bench coding score.</p>
+    <div class="axes">
+      <div><b>X →</b> Input cost (USD / 1M tokens, log)</div>
+      <div><b>Y ↑</b> Output cost (USD / 1M tokens, log)</div>
+      <div><b>Z ↗</b> Coding capability (SWE-bench %)</div>
+    </div>
+  </div>
+
+  <div id="legend" class="panel">
+    <h2>Providers</h2>
+    <div id="legend-rows"></div>
+    <div class="legend-divider"></div>
+    <h2>Benchmark variant</h2>
+    <div class="shape-key"><span class="shape-glyph">●</span> SWE-bench Verified</div>
+    <div class="shape-key"><span class="shape-glyph">◆</span> SWE-bench Pro</div>
+  </div>
+
+  <div id="warning" class="panel">
+    <b>⚠ Scores are not directly comparable.</b>
+    The capability axis mixes SWE-bench <b>Pro</b> and <b>Verified</b> results (shown as different shapes), which use different task sets and harnesses. Treat cross-variant comparisons with caution.
+  </div>
+
+  <div id="hint" class="panel">
+    <kbd>Drag</kbd> rotate · <kbd>Scroll</kbd> zoom · <kbd>Right-drag</kbd> pan · <kbd>Hover</kbd> details
+  </div>
+
+  <div id="tooltip" class="panel"></div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // ----------------------------------------------------------------------
+    // DATA — parsed from ai_models_swebench_token_pricing_2026-06-15.csv
+    // Models missing required fields (input/output cost or primary score) are
+    // excluded. MAI-Code-1-Flash is omitted (no public pricing).
+    // ----------------------------------------------------------------------
+    const MODELS = [
+      { provider: 'Anthropic', model: 'Claude Fable 5', score: 80.0, variant: 'Pro', input: 10.00, cached: 1.00, output: 50.00, release: '2026-06-09', status: 'Suspended / unavailable' },
+      { provider: 'Anthropic', model: 'Claude Opus 4.8', score: 69.2, variant: 'Pro', input: 5.00, cached: 0.50, output: 25.00, release: '2026-05-28', status: 'Available' },
+      { provider: 'Anthropic', model: 'Claude Opus 4.7', score: 64.3, variant: 'Pro', input: 5.00, cached: 0.50, output: 25.00, release: '2026-04-16', status: 'Available' },
+      { provider: 'Anthropic', model: 'Claude Opus 4.6', score: 80.8, variant: 'Verified', input: 5.00, cached: 0.50, output: 25.00, release: '2026-02-05', status: 'Available' },
+      { provider: 'Anthropic', model: 'Claude Sonnet 4.6', score: 79.6, variant: 'Verified', input: 3.00, cached: 0.30, output: 15.00, release: '2026-02-17', status: 'Available' },
+      { provider: 'Anthropic', model: 'Claude Opus 4.5', score: 80.9, variant: 'Verified', input: 5.00, cached: 0.50, output: 25.00, release: '2025-11-24', status: 'Available' },
+      { provider: 'Anthropic', model: 'Claude Sonnet 4.5', score: 77.2, variant: 'Verified', input: 3.00, cached: 0.30, output: 15.00, release: '2025-09-29', status: 'Available' },
+      { provider: 'Anthropic', model: 'Claude Haiku 4.5', score: 73.3, variant: 'Verified', input: 1.00, cached: 0.10, output: 5.00, release: '2025-10-15', status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5.5', score: 58.6, variant: 'Pro', input: 5.00, cached: 0.50, output: 30.00, release: '2026-04-23', status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5.4', score: 57.7, variant: 'Pro', input: 2.50, cached: 0.25, output: 15.00, release: '2026-03-05', status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5.4 mini', score: 54.4, variant: 'Pro', input: 0.75, cached: 0.075, output: 4.50, release: '2026-03-17', status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5.3-Codex', score: 56.8, variant: 'Pro', input: 1.75, cached: 0.175, output: 14.00, release: '2026-02-05', status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5.2', score: 55.6, variant: 'Pro', input: 1.75, cached: 0.175, output: 14.00, release: '2025-12-11', status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5', score: 74.9, variant: 'Verified', input: 1.25, cached: 0.125, output: 10.00, release: '2025-08-07', status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5 mini', score: 71.0, variant: 'Verified', input: 0.25, cached: 0.025, output: 2.00, release: '2025-08-07', status: 'Available' },
+      { provider: 'Google', model: 'Gemini 3.5 Flash', score: 55.1, variant: 'Pro', input: 1.50, cached: 0.15, output: 9.00, release: '2026-05-19', status: 'Preview' },
+      { provider: 'Google', model: 'Gemini 3.1 Pro Preview', score: 54.2, variant: 'Pro', input: 2.00, cached: 0.20, output: 12.00, release: '2026-02-19', status: 'Preview' },
+      { provider: 'Google', model: 'Gemini 3 Flash Preview', score: 49.6, variant: 'Pro', input: 0.50, cached: 0.05, output: 3.00, release: '2025-12-17', status: 'Preview' },
+      { provider: 'Moonshot AI', model: 'Kimi K2.6', score: 58.6, variant: 'Pro', input: 0.95, cached: 0.16, output: 4.00, release: '2026-04-20', status: 'Available' },
+      { provider: 'Moonshot AI', model: 'Kimi K2.5', score: 50.7, variant: 'Pro', input: 0.60, cached: 0.10, output: 3.00, release: '2026-01-27', status: 'Available' },
+      { provider: 'MiniMax', model: 'MiniMax M2.7', score: 56.22, variant: 'Pro', input: 0.30, cached: 0.06, output: 1.20, release: '2026-03-18', status: 'Available' },
+      { provider: 'MiniMax', model: 'MiniMax M2.5', score: 80.2, variant: 'Verified', input: 0.30, cached: 0.03, output: 1.20, release: '2026-02-12', status: 'Legacy; available' },
+      { provider: 'xAI', model: 'Grok Code Fast 1', score: 70.8, variant: 'Verified', input: 0.20, cached: 0.02, output: 1.50, release: '2025-08-28', status: 'Retired 2026-05-15' },
+    ];
+
+    const PROVIDER_COLORS = {
+      'Anthropic':   '#d97757',
+      'OpenAI':      '#10a37f',
+      'Google':      '#4285f4',
+      'Moonshot AI': '#a855f7',
+      'MiniMax':     '#f5b301',
+      'xAI':         '#e6e9ef',
+    };
+
+    // ----------------------------------------------------------------------
+    // SCALES
+    // ----------------------------------------------------------------------
+    const AXIS = 100;            // length of each axis in world units
+    const PAD = 0.06;            // fractional padding at each end
+
+    function makeLogScale(values) {
+      const logs = values.map((v) => Math.log10(v));
+      let min = Math.min(...logs);
+      let max = Math.max(...logs);
+      const span = max - min || 1;
+      min -= span * PAD;
+      max += span * PAD;
+      return {
+        min, max,
+        norm: (v) => (Math.log10(v) - min) / (max - min),
+        toWorld: (v) => ((Math.log10(v) - min) / (max - min)) * AXIS,
+        // nice tick values in original units within [10^min,10^max]
+        ticks: () => {
+          const lo = Math.floor(min), hi = Math.ceil(max);
+          const out = [];
+          for (let e = lo; e <= hi; e++) {
+            for (const m of [1, 2, 5]) {
+              const val = m * Math.pow(10, e);
+              const lv = Math.log10(val);
+              if (lv >= min && lv <= max) out.push(val);
+            }
+          }
+          return out;
+        },
+      };
+    }
+
+    function makeLinearScale(values) {
+      let min = Math.min(...values);
+      let max = Math.max(...values);
+      const span = max - min || 1;
+      min -= span * PAD;
+      max += span * PAD;
+      return {
+        min, max,
+        toWorld: (v) => ((v - min) / (max - min)) * AXIS,
+        ticks: () => {
+          const step = niceStep((max - min) / 5);
+          const start = Math.ceil(min / step) * step;
+          const out = [];
+          for (let v = start; v <= max + 1e-9; v += step) out.push(+v.toFixed(6));
+          return out;
+        },
+      };
+    }
+
+    function niceStep(raw) {
+      const exp = Math.floor(Math.log10(raw));
+      const base = Math.pow(10, exp);
+      const f = raw / base;
+      let nf = 10;
+      if (f < 1.5) nf = 1; else if (f < 3) nf = 2; else if (f < 7) nf = 5;
+      return nf * base;
+    }
+
+    const xScale = makeLogScale(MODELS.map((m) => m.input));
+    const yScale = makeLogScale(MODELS.map((m) => m.output));
+    const zScale = makeLinearScale(MODELS.map((m) => m.score));
+
+    // ----------------------------------------------------------------------
+    // SCENE
+    // ----------------------------------------------------------------------
+    const app = document.getElementById('app');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b0e14);
+    scene.fog = new THREE.Fog(0x0b0e14, 260, 520);
+
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 2000);
+    camera.position.set(150, 130, 175);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    app.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.target.set(AXIS / 2, AXIS / 2, AXIS / 2);
+    controls.maxDistance = 600;
+    controls.minDistance = 40;
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+    const dir = new THREE.DirectionalLight(0xffffff, 0.9);
+    dir.position.set(120, 200, 160);
+    scene.add(dir);
+    const dir2 = new THREE.DirectionalLight(0x88aaff, 0.35);
+    dir2.position.set(-150, 60, -120);
+    scene.add(dir2);
+
+    // ----------------------------------------------------------------------
+    // AXES, GRID, TICKS, LABELS (using sprite text)
+    // ----------------------------------------------------------------------
+    const axisGroup = new THREE.Group();
+    scene.add(axisGroup);
+
+    function makeTextSprite(text, opts = {}) {
+      const {
+        fontSize = 48,
+        color = '#e6e9ef',
+        bg = 'rgba(0,0,0,0)',
+        bold = false,
+        padding = 8,
+      } = opts;
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const font = `${bold ? '600 ' : ''}${fontSize}px -apple-system, "Segoe UI", Roboto, sans-serif`;
+      ctx.font = font;
+      const metrics = ctx.measureText(text);
+      const w = Math.ceil(metrics.width) + padding * 2;
+      const h = fontSize + padding * 2;
+      canvas.width = w;
+      canvas.height = h;
+      ctx.font = font;
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = color;
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'center';
+      ctx.fillText(text, w / 2, h / 2);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.minFilter = THREE.LinearFilter;
+      tex.needsUpdate = true;
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+      const sprite = new THREE.Sprite(mat);
+      const scale = 0.13;
+      sprite.scale.set((w * scale) / 4, (h * scale) / 4, 1);
+      sprite.userData.aspect = w / h;
+      return sprite;
+    }
+
+    const AXIS_COLOR = 0x3a4252;
+    const AXIS_HI = { x: 0xff7a6b, y: 0x6bff9e, z: 0x6ba8ff };
+
+    function axisLine(from, to, color) {
+      const g = new THREE.BufferGeometry().setFromPoints([from, to]);
+      return new THREE.Line(g, new THREE.LineBasicMaterial({ color }));
+    }
+
+    // main axis lines
+    axisGroup.add(axisLine(new THREE.Vector3(0, 0, 0), new THREE.Vector3(AXIS, 0, 0), AXIS_HI.x));
+    axisGroup.add(axisLine(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, AXIS, 0), AXIS_HI.y));
+    axisGroup.add(axisLine(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, AXIS), AXIS_HI.z));
+
+    // floor grid (X-Z plane at y=0)
+    const grid = new THREE.GridHelper(AXIS, 10, AXIS_COLOR, 0x20262f);
+    grid.position.set(AXIS / 2, 0, AXIS / 2);
+    axisGroup.add(grid);
+
+    // back walls (faint) for depth perception
+    function wallGrid(plane) {
+      const div = 10;
+      const pts = [];
+      for (let i = 0; i <= div; i++) {
+        const t = (i / div) * AXIS;
+        if (plane === 'xy') {
+          pts.push(new THREE.Vector3(0, t, 0), new THREE.Vector3(AXIS, t, 0));
+          pts.push(new THREE.Vector3(t, 0, 0), new THREE.Vector3(t, AXIS, 0));
+        } else { // zy
+          pts.push(new THREE.Vector3(0, t, 0), new THREE.Vector3(0, t, AXIS));
+          pts.push(new THREE.Vector3(0, 0, t), new THREE.Vector3(0, AXIS, t));
+        }
+      }
+      const g = new THREE.BufferGeometry().setFromPoints(pts);
+      return new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x1a1f29 }));
+    }
+    axisGroup.add(wallGrid('xy'));
+    axisGroup.add(wallGrid('zy'));
+
+    function fmtMoney(v) {
+      if (v >= 1) return '$' + (v % 1 === 0 ? v.toFixed(0) : v.toFixed(2));
+      return '$' + v.toFixed(2);
+    }
+
+    // X ticks (input cost, log)
+    for (const v of xScale.ticks()) {
+      const x = xScale.toWorld(v);
+      axisGroup.add(axisLine(new THREE.Vector3(x, 0, 0), new THREE.Vector3(x, -2.5, 0), AXIS_COLOR));
+      const s = makeTextSprite(fmtMoney(v), { fontSize: 36, color: '#c2c9d6' });
+      s.position.set(x, -7, 0);
+      axisGroup.add(s);
+    }
+    // Y ticks (output cost, log)
+    for (const v of yScale.ticks()) {
+      const y = yScale.toWorld(v);
+      axisGroup.add(axisLine(new THREE.Vector3(0, y, 0), new THREE.Vector3(-2.5, y, 0), AXIS_COLOR));
+      const s = makeTextSprite(fmtMoney(v), { fontSize: 36, color: '#c2c9d6' });
+      s.position.set(-9, y, 0);
+      axisGroup.add(s);
+    }
+    // Z ticks (score, linear)
+    for (const v of zScale.ticks()) {
+      const z = zScale.toWorld(v);
+      axisGroup.add(axisLine(new THREE.Vector3(0, 0, z), new THREE.Vector3(0, -2.5, z), AXIS_COLOR));
+      const s = makeTextSprite(v.toFixed(0) + '%', { fontSize: 36, color: '#c2c9d6' });
+      s.position.set(-8, -3, z);
+      axisGroup.add(s);
+    }
+
+    // Axis titles
+    function addTitle(text, pos, color) {
+      const s = makeTextSprite(text, { fontSize: 44, color, bold: true });
+      s.position.copy(pos);
+      axisGroup.add(s);
+    }
+    addTitle('Input $/1M →', new THREE.Vector3(AXIS / 2, -16, 0), '#ff9a8d');
+    addTitle('Output $/1M ↑', new THREE.Vector3(-20, AXIS / 2, 0), '#8dffb4');
+    addTitle('SWE-bench % ↗', new THREE.Vector3(-14, -10, AXIS / 2), '#9ec5ff');
+
+    // ----------------------------------------------------------------------
+    // POINTS
+    // ----------------------------------------------------------------------
+    const sphereGeo = new THREE.SphereGeometry(2.4, 24, 18);
+    const octaGeo = new THREE.OctahedronGeometry(3.0, 0);
+    const pointMeshes = [];
+    const pointsGroup = new THREE.Group();
+    scene.add(pointsGroup);
+
+    for (const m of MODELS) {
+      const color = new THREE.Color(PROVIDER_COLORS[m.provider] || '#ffffff');
+      const mat = new THREE.MeshStandardMaterial({
+        color,
+        emissive: color.clone().multiplyScalar(0.25),
+        roughness: 0.4,
+        metalness: 0.1,
+      });
+      const geo = m.variant === 'Verified' ? sphereGeo : octaGeo;
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(
+        xScale.toWorld(m.input),
+        yScale.toWorld(m.output),
+        zScale.toWorld(m.score),
+      );
+      mesh.userData.model = m;
+      mesh.userData.baseScale = 1;
+      mesh.userData.color = color;
+
+      // drop line to floor for spatial grounding
+      const dropGeo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(mesh.position.x, 0, mesh.position.z),
+        mesh.position.clone(),
+      ]);
+      const drop = new THREE.Line(dropGeo, new THREE.LineBasicMaterial({
+        color, transparent: true, opacity: 0.22,
+      }));
+      mesh.userData.drop = drop;
+      pointsGroup.add(drop);
+      pointsGroup.add(mesh);
+      pointMeshes.push(mesh);
+    }
+
+    // ----------------------------------------------------------------------
+    // LEGEND (interactive provider toggles)
+    // ----------------------------------------------------------------------
+    const legendRows = document.getElementById('legend-rows');
+    const providerCounts = {};
+    for (const m of MODELS) providerCounts[m.provider] = (providerCounts[m.provider] || 0) + 1;
+    const hiddenProviders = new Set();
+
+    for (const prov of Object.keys(PROVIDER_COLORS)) {
+      if (!providerCounts[prov]) continue;
+      const row = document.createElement('div');
+      row.className = 'legend-row';
+      row.innerHTML = `
+        <span class="swatch" style="background:${PROVIDER_COLORS[prov]}"></span>
+        <span class="name">${prov}</span>
+        <span class="count">${providerCounts[prov]}</span>`;
+      row.addEventListener('click', () => {
+        if (hiddenProviders.has(prov)) hiddenProviders.delete(prov);
+        else hiddenProviders.add(prov);
+        row.classList.toggle('off', hiddenProviders.has(prov));
+        applyVisibility();
+      });
+      legendRows.appendChild(row);
+    }
+
+    function applyVisibility() {
+      for (const mesh of pointMeshes) {
+        const hidden = hiddenProviders.has(mesh.userData.model.provider);
+        mesh.visible = !hidden;
+        mesh.userData.drop.visible = !hidden;
+      }
+    }
+
+    // ----------------------------------------------------------------------
+    // HOVER (raycaster) + TOOLTIP
+    // ----------------------------------------------------------------------
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const tooltip = document.getElementById('tooltip');
+    let hovered = null;
+    let mouseX = 0, mouseY = 0;
+    let pointerInside = false;
+
+    renderer.domElement.addEventListener('pointermove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+      pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      pointerInside = true;
+    });
+    renderer.domElement.addEventListener('pointerleave', () => {
+      pointerInside = false;
+    });
+
+    function fmtDate(iso) {
+      const d = new Date(iso + 'T00:00:00');
+      return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    function showTooltip(m) {
+      const color = PROVIDER_COLORS[m.provider];
+      const statusLine = /available/i.test(m.status)
+        ? ''
+        : `<div class="tt-status">⚠ ${m.status}</div>`;
+      tooltip.innerHTML = `
+        <div class="tt-name" style="color:${color}">${m.model}</div>
+        <div class="tt-provider">${m.provider} · ${fmtDate(m.release)}</div>
+        <div class="tt-grid">
+          <span class="k">Coding score</span><span class="v">${m.score.toFixed(1)}%</span>
+          <span class="k">Input</span><span class="v">${fmtMoney(m.input)} / 1M</span>
+          <span class="k">Output</span><span class="v">${fmtMoney(m.output)} / 1M</span>
+          <span class="k">Cached in</span><span class="v">${fmtMoney(m.cached)} / 1M</span>
+        </div>
+        <div class="tt-variant">SWE-bench ${m.variant}</div>
+        ${statusLine}`;
+      tooltip.classList.add('visible');
+    }
+
+    function updateHover() {
+      if (!pointerInside) {
+        if (hovered) { unhighlight(hovered); hovered = null; }
+        tooltip.classList.remove('visible');
+        return;
+      }
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(pointMeshes, false).filter((h) => h.object.visible);
+      if (hits.length) {
+        const mesh = hits[0].object;
+        if (hovered !== mesh) {
+          if (hovered) unhighlight(hovered);
+          hovered = mesh;
+          highlight(mesh);
+          showTooltip(mesh.userData.model);
+        }
+        tooltip.style.left = mouseX + 'px';
+        tooltip.style.top = mouseY + 'px';
+        document.body.style.cursor = 'pointer';
+      } else {
+        if (hovered) { unhighlight(hovered); hovered = null; }
+        tooltip.classList.remove('visible');
+        document.body.style.cursor = 'default';
+      }
+    }
+
+    function highlight(mesh) {
+      mesh.scale.setScalar(1.6);
+      mesh.material.emissive = mesh.userData.color.clone().multiplyScalar(0.7);
+    }
+    function unhighlight(mesh) {
+      mesh.scale.setScalar(1);
+      mesh.material.emissive = mesh.userData.color.clone().multiplyScalar(0.25);
+    }
+
+    // ----------------------------------------------------------------------
+    // RESIZE + ANIMATE
+    // ----------------------------------------------------------------------
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      updateHover();
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>
