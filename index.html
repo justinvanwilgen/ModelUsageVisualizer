@@ -60,6 +60,27 @@
   }
   #header .axes b { color: var(--text); }
 
+  /* Info toggle button — hidden on desktop, shown on mobile */
+  #header-toggle {
+    display: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px solid var(--panel-border);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text);
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+  }
+  #header-toggle:hover { background: rgba(255, 255, 255, 0.12); }
+
   /* Legend */
   #legend {
     top: 16px;
@@ -91,11 +112,23 @@
   .legend-row.off { opacity: 0.35; }
   .legend-row.off .count { text-decoration: line-through; }
   .swatch {
-    width: 13px;
-    height: 13px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
     flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .swatch img {
+    width: 62%;
+    height: 62%;
+    object-fit: contain;
+    display: block;
   }
   .legend-row .count {
     margin-left: auto;
@@ -181,18 +214,94 @@
     font-size: 10.5px;
     color: #ff9a8a;
   }
+
+  /* Mobile: keep the top-left header and top-right legend from overlapping */
+  @media (max-width: 640px) {
+    #header, #legend {
+      top: 10px;
+      padding: 10px 12px;
+    }
+    /* Collapse the header into a small info-icon panel */
+    #header {
+      left: 10px;
+      max-width: none;
+      padding: 6px;
+    }
+    #header-toggle { display: inline-flex; }
+    #header-body { display: none; }
+    #header.expanded {
+      max-width: calc(100vw - 90px);
+      padding: 10px 12px;
+    }
+    #header.expanded #header-toggle {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 24px;
+      height: 24px;
+      font-size: 13px;
+    }
+    #header.expanded #header-body {
+      display: block;
+      padding-right: 22px;
+    }
+    #header h1 { font-size: 13px; }
+    #header p { font-size: 10.5px; line-height: 1.4; }
+    #header .axes { font-size: 10px; margin-top: 6px; }
+
+    #legend {
+      right: 10px;
+      min-width: 0;
+      max-width: none;
+      width: auto;
+      padding: 10px 8px;
+      max-height: calc(100vh - 20px);
+    }
+    #legend h2 {
+      font-size: 9px;
+      text-align: center;
+      letter-spacing: 0.5px;
+    }
+    /* Collapse to a thin icon-only column: hide provider names */
+    .legend-row {
+      gap: 5px;
+      padding: 4px;
+      justify-content: center;
+    }
+    .legend-row .name { display: none; }
+    .legend-row .count {
+      margin-left: 0;
+      font-size: 10px;
+    }
+    .swatch { width: 22px; height: 22px; }
+    /* Hide the benchmark section and the PROVIDERS heading on mobile */
+    .legend-divider,
+    .benchmark-heading,
+    .shape-key,
+    #legend h2 { display: none; }
+  }
+
+  @media (max-width: 400px) {
+    #header h1 { font-size: 12px; }
+    #header p { font-size: 10px; }
+    #header .axes { font-size: 9.5px; }
+    .legend-row .count { font-size: 9.5px; }
+  }
 </style>
 </head>
 <body>
   <div id="app"></div>
 
   <div id="header" class="panel">
-    <h1>LLM Cost vs Coding Capability</h1>
-    <p>Interactive 3D map of large language models. Each point is a model, positioned by API price and SWE-bench coding score.</p>
-    <div class="axes">
-      <div><b>X →</b> Input cost (USD / 1M tokens, log)</div>
-      <div><b>Y ↑</b> Output cost (USD / 1M tokens, log)</div>
-      <div><b>Z ↗</b> Coding capability (SWE-bench %)</div>
+    <button id="header-toggle" aria-label="About this visualization" aria-expanded="true">i</button>
+    <div id="header-body">
+      <h1>LLM Cost vs Coding Capability</h1>
+      <p>Interactive 3D map of large language models. Each point is a model, positioned by API price and SWE-bench coding score.</p>
+      <div class="axes">
+        <div><b>X →</b> Input cost (USD / 1M tokens, log)</div>
+        <div><b>Y ↑</b> Output cost (USD / 1M tokens, log)</div>
+        <div><b>Z ↗</b> Coding capability (SWE-bench %)</div>
+      </div>
     </div>
   </div>
 
@@ -200,7 +309,7 @@
     <h2>Providers</h2>
     <div id="legend-rows"></div>
     <div class="legend-divider"></div>
-    <h2>Benchmark</h2>
+    <h2 class="benchmark-heading">Benchmark</h2>
     <div class="shape-key"><span class="shape-glyph">●</span> SWE-bench Verified</div>
   </div>
 
@@ -210,7 +319,8 @@
 
   <div id="tooltip" class="panel"></div>
 
-  <!-- Provider→logo registry (classic script so it also works from file://) -->
+  <!-- Model data + provider→logo registry (classic scripts so they also work from file://) -->
+  <script src="models.js?v=1"></script>
   <script src="logos.js?v=2"></script>
 
   <script type="importmap">
@@ -226,42 +336,8 @@
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-    // ----------------------------------------------------------------------
-    // DATA — parsed from swe_bench_verified_leaderboard_with_token_costs.csv
-    // Limited to models with a *Current* pricing status only:
-    //   • SWE-bench Verified results only.
-    //   • Preview, Deprecated, and Discontinued pricing excluded
-    //     (Qwen 3.6 Max, Gemini 3.x previews, Claude Opus 4 / 4.1).
-    //   • CSV does not provide release dates, so the `release` field is omitted.
-    // ----------------------------------------------------------------------
-    const MODELS = [
-      { provider: 'Anthropic', model: 'Claude Opus 4.7 (max)', score: 83.5, variant: 'Verified', input: 5.00, cached: 0.50, output: 25.00, status: 'Available' },
-      { provider: 'OpenAI', model: 'GPT-5.5 (xhigh)', score: 80.6, variant: 'Verified', input: 5.00, cached: 0.50, output: 30.00, status: 'Available' },
-      { provider: 'Google', model: 'Gemini 3.5 Flash (high)', score: 79.3, variant: 'Verified', input: 1.50, cached: 0.15, output: 9.00, status: 'Available' },
-      { provider: 'Anthropic', model: 'Claude Opus 4.6 (no thinking)', score: 78.7, variant: 'Verified', input: 5.00, cached: 0.50, output: 25.00, status: 'Available' },
-      { provider: 'OpenAI', model: 'GPT-5.4 (high)', score: 76.9, variant: 'Verified', input: 2.50, cached: 0.25, output: 15.00, status: 'Available' },
-      { provider: 'Moonshot', model: 'Kimi K2.6', score: 76.7, variant: 'Verified', input: 0.95, cached: 0.16, output: 4.00, status: 'Available' },
-      { provider: 'Anthropic', model: 'Claude Opus 4.5 (no thinking)', score: 76.7, variant: 'Verified', input: 5.00, cached: 0.50, output: 25.00, status: 'Available' },
-      { provider: 'Anthropic', model: 'Claude Sonnet 4.6', score: 75.2, variant: 'Verified', input: 3.00, cached: 0.30, output: 15.00, status: 'Available' },
-      { provider: 'OpenAI', model: 'GPT-5.3 Codex (high)', score: 74.8, variant: 'Verified', input: 1.75, cached: 0.175, output: 14.00, status: 'Available' },
-      { provider: 'Z.ai (Zhipu AI)', model: 'GLM-5.1', score: 74.2, variant: 'Verified', input: 1.40, cached: 0.26, output: 4.40, status: 'Available' },
-      { provider: 'Moonshot', model: 'Kimi K2.5', score: 73.8, variant: 'Verified', input: 0.60, cached: 0.10, output: 3.00, status: 'Available' },
-      { provider: 'OpenAI', model: 'GPT-5.2 (high)', score: 73.8, variant: 'Verified', input: 1.75, cached: 0.175, output: 14.00, status: 'Available' },
-      { provider: 'OpenAI', model: 'GPT-5 (high)', score: 73.6, variant: 'Verified', input: 1.25, cached: 0.125, output: 10.00, status: 'Available' },
-      { provider: 'Z.ai (Zhipu AI)', model: 'GLM-5', score: 72.1, variant: 'Verified', input: 1.00, cached: 0.20, output: 3.20, status: 'Available' },
-      { provider: 'OpenAI', model: 'GPT-5 (medium)', score: 71.5, variant: 'Verified', input: 1.25, cached: 0.125, output: 10.00, status: 'Available' },
-      { provider: 'Anthropic', model: 'Claude Sonnet 4.5 (no thinking)', score: 71.3, variant: 'Verified', input: 3.00, cached: 0.30, output: 15.00, status: 'Available' },
-      { provider: 'OpenAI', model: 'GPT-5.1 (high)', score: 68.0, variant: 'Verified', input: 1.25, cached: 0.125, output: 10.00, status: 'Available' },
-      { provider: 'OpenAI', model: 'GPT-5 mini (medium)', score: 64.7, variant: 'Verified', input: 0.25, cached: 0.025, output: 2.00, status: 'Available' },
-    ];
-
-    const PROVIDER_COLORS = {
-      'Anthropic':      '#d97757',
-      'OpenAI':         '#10a37f',
-      'Google':         '#4285f4',
-      'Moonshot':       '#a855f7',
-      'Z.ai (Zhipu AI)': '#ec4899',
-    };
+    // Model data is provided by models.js (classic script) on `window`.
+    const { MODELS, PROVIDER_COLORS } = window;
 
     // ----------------------------------------------------------------------
     // SCALES
@@ -621,14 +697,47 @@
     for (const m of MODELS) providerCounts[m.provider] = (providerCounts[m.provider] || 0) + 1;
     const hiddenProviders = new Set();
 
+    // Build a circular provider badge: the brand color disc with the white
+    // brand logo on top (same source as the balls, via logos.js). Falls back
+    // to the provider initial if no logo can be loaded.
+    function buildLegendIcon(prov) {
+      const color = PROVIDER_COLORS[prov] || '#7a8595';
+      const cfg = LOGO_REG[prov] || LOGO_FALLBACK;
+      const icon = document.createElement('span');
+      icon.className = 'swatch';
+      icon.style.background = color;
+      const url = cfg.url || (cfg.slug ? `https://cdn.simpleicons.org/${cfg.slug}/white` : null);
+      if (cfg.svg || url) {
+        const img = document.createElement('img');
+        img.alt = '';
+        img.src = cfg.svg
+          ? 'data:image/svg+xml;utf8,' + encodeURIComponent(cfg.svg)
+          : url;
+        img.addEventListener('error', () => {
+          img.remove();
+          icon.textContent = cfg.label || prov.charAt(0);
+        });
+        icon.appendChild(img);
+      } else {
+        icon.textContent = cfg.label || prov.charAt(0);
+      }
+      return icon;
+    }
+
     for (const prov of Object.keys(PROVIDER_COLORS)) {
       if (!providerCounts[prov]) continue;
       const row = document.createElement('div');
       row.className = 'legend-row';
-      row.innerHTML = `
-        <span class="swatch" style="background:${PROVIDER_COLORS[prov]}"></span>
-        <span class="name">${prov}</span>
-        <span class="count">${providerCounts[prov]}</span>`;
+      row.title = prov;
+      row.appendChild(buildLegendIcon(prov));
+      const name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = prov;
+      row.appendChild(name);
+      const count = document.createElement('span');
+      count.className = 'count';
+      count.textContent = providerCounts[prov];
+      row.appendChild(count);
       row.addEventListener('click', () => {
         if (hiddenProviders.has(prov)) hiddenProviders.delete(prov);
         else hiddenProviders.add(prov);
@@ -645,6 +754,14 @@
         mesh.userData.drop.visible = !hidden;
       }
     }
+
+    // Collapsible header (mobile): tap the info icon to expand/collapse.
+    const header = document.getElementById('header');
+    const headerToggle = document.getElementById('header-toggle');
+    headerToggle.addEventListener('click', () => {
+      const expanded = header.classList.toggle('expanded');
+      headerToggle.setAttribute('aria-expanded', String(expanded));
+    });
 
     // ----------------------------------------------------------------------
     // HOVER (raycaster) + TOOLTIP

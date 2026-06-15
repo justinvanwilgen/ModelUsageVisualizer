@@ -12,10 +12,7 @@ Each point in the 3D space is an LLM, positioned along three axes:
 | **Y ↑** | Output cost (USD / 1M tokens, log scale) |
 | **Z ↗** | Coding capability (SWE-bench score %) |
 
-Points are colored by provider and shaped by benchmark variant:
-
-- **●** SWE-bench Verified
-- **◆** SWE-bench Pro
+Points are colored by provider. All models use **● SWE-bench Verified** results.
 
 ## Controls
 
@@ -25,6 +22,7 @@ Points are colored by provider and shaped by benchmark variant:
 | Scroll | Zoom |
 | Right-drag | Pan |
 | Hover | Show model details |
+| Click legend row | Toggle provider visibility |
 
 ## Providers covered
 
@@ -32,12 +30,15 @@ Points are colored by provider and shaped by benchmark variant:
 - OpenAI (GPT)
 - Google (Gemini)
 - Moonshot AI (Kimi)
-- MiniMax
-- xAI (Grok)
+- Z.ai / Zhipu AI (GLM)
 
-## ⚠ Benchmark note
+## Project structure
 
-The capability axis mixes **SWE-bench Pro** and **SWE-bench Verified** results, which use different task sets and harnesses. Cross-variant comparisons should be treated with caution — use the shape encoding to tell them apart.
+| File | Purpose |
+|------|---------|
+| `index.html` | App shell, styles, and Three.js scene logic |
+| `models.js` | Model data (`MODELS` array) and provider color map |
+| `logos.js` | Provider logo registry (Simple Icons slugs / fallback initials) |
 
 ## Usage
 
@@ -49,8 +50,8 @@ npx serve .
 python3 -m http.server
 ```
 
-The visualization loads [Three.js](https://threejs.org/) via CDN (`unpkg.com`), so an internet connection is required on first load.
+The visualization loads [Three.js](https://threejs.org/) via CDN (`unpkg.com`), so an internet connection is required on first load. Both `models.js` and `logos.js` are loaded as classic scripts so the page also works when opened directly from disk (`file://`).
 
 ## Data
 
-Model data is embedded in `index.html` and was sourced from public pricing pages and published SWE-bench leaderboard results as of **2026-06-15**. To update or add models, edit the `MODELS` array near the top of the `<script type="module">` block.
+Model data lives in `models.js` and was sourced from public pricing pages and published SWE-bench leaderboard results as of **2026-06-15**. To update or add models, edit the `MODELS` array in `models.js`. To add a provider logo, add an entry to `window.PROVIDER_LOGOS` in `logos.js` (supports a Simple Icons slug, a direct SVG URL, or inline SVG markup).
