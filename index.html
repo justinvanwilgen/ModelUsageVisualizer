@@ -60,32 +60,12 @@
   }
   #header .axes b { color: var(--text); }
 
-  /* Info toggle button — hidden on desktop, shown on mobile */
-  #header-toggle {
-    display: none;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    border: 1px solid var(--panel-border);
-    background: rgba(255, 255, 255, 0.06);
-    color: var(--text);
-    font-family: Georgia, "Times New Roman", serif;
-    font-style: italic;
-    font-weight: 700;
-    font-size: 16px;
-    line-height: 1;
-    cursor: pointer;
-    padding: 0;
-    align-items: center;
-    justify-content: center;
-  }
-  #header-toggle:hover { background: rgba(255, 255, 255, 0.12); }
-
   /* Legend */
   #legend {
     top: 16px;
     right: 16px;
     padding: 12px 14px;
+    width: min(250px, calc(100vw - 32px));
     min-width: 200px;
     max-height: calc(100vh - 32px);
     overflow-y: auto;
@@ -112,23 +92,23 @@
   .legend-row.off { opacity: 0.35; }
   .legend-row.off .count { text-decoration: line-through; }
   .swatch {
-    width: 20px;
-    height: 20px;
+    width: 13px;
+    height: 13px;
     border-radius: 50%;
     flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
-    font-size: 10px;
-    font-weight: 700;
-    color: #fff;
   }
-  .swatch img {
-    width: 62%;
-    height: 62%;
-    object-fit: contain;
-    display: block;
+  .swatch-plane {
+    border-radius: 3px;
+    background: linear-gradient(135deg, #38bdf8 0%, #8ddf6f 48%, #f7d154 100%);
+  }
+  .overlay-hint {
+    max-width: 218px;
+    font-size: 10.5px;
+    line-height: 1.45;
+    color: var(--text-dim);
+    padding: 3px 6px 2px;
+    overflow-wrap: break-word;
   }
   .legend-row .count {
     margin-left: auto;
@@ -214,94 +194,18 @@
     font-size: 10.5px;
     color: #ff9a8a;
   }
-
-  /* Mobile: keep the top-left header and top-right legend from overlapping */
-  @media (max-width: 640px) {
-    #header, #legend {
-      top: 10px;
-      padding: 10px 12px;
-    }
-    /* Collapse the header into a small info-icon panel */
-    #header {
-      left: 10px;
-      max-width: none;
-      padding: 6px;
-    }
-    #header-toggle { display: inline-flex; }
-    #header-body { display: none; }
-    #header.expanded {
-      max-width: calc(100vw - 90px);
-      padding: 10px 12px;
-    }
-    #header.expanded #header-toggle {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      width: 24px;
-      height: 24px;
-      font-size: 13px;
-    }
-    #header.expanded #header-body {
-      display: block;
-      padding-right: 22px;
-    }
-    #header h1 { font-size: 13px; }
-    #header p { font-size: 10.5px; line-height: 1.4; }
-    #header .axes { font-size: 10px; margin-top: 6px; }
-
-    #legend {
-      right: 10px;
-      min-width: 0;
-      max-width: none;
-      width: auto;
-      padding: 10px 8px;
-      max-height: calc(100vh - 20px);
-    }
-    #legend h2 {
-      font-size: 9px;
-      text-align: center;
-      letter-spacing: 0.5px;
-    }
-    /* Collapse to a thin icon-only column: hide provider names */
-    .legend-row {
-      gap: 5px;
-      padding: 4px;
-      justify-content: center;
-    }
-    .legend-row .name { display: none; }
-    .legend-row .count {
-      margin-left: 0;
-      font-size: 10px;
-    }
-    .swatch { width: 22px; height: 22px; }
-    /* Hide the benchmark section and the PROVIDERS heading on mobile */
-    .legend-divider,
-    .benchmark-heading,
-    .shape-key,
-    #legend h2 { display: none; }
-  }
-
-  @media (max-width: 400px) {
-    #header h1 { font-size: 12px; }
-    #header p { font-size: 10px; }
-    #header .axes { font-size: 9.5px; }
-    .legend-row .count { font-size: 9.5px; }
-  }
 </style>
 </head>
 <body>
   <div id="app"></div>
 
   <div id="header" class="panel">
-    <button id="header-toggle" aria-label="About this visualization" aria-expanded="true">i</button>
-    <div id="header-body">
-      <h1>LLM Cost vs Coding Capability</h1>
-      <p>Interactive 3D map of large language models. Each point is a model, positioned by API price and SWE-bench coding score.</p>
-      <div class="axes">
-        <div><b>X →</b> Input cost (USD / 1M tokens, log)</div>
-        <div><b>Y ↑</b> Output cost (USD / 1M tokens, log)</div>
-        <div><b>Z ↗</b> Coding capability (SWE-bench %)</div>
-      </div>
+    <h1>LLM Cost vs Coding Capability</h1>
+    <p>Interactive 3D map of large language models. Each point is a model, positioned by API price and SWE-bench coding score.</p>
+    <div class="axes">
+      <div><b>X →</b> Input cost (USD / 1M tokens, log)</div>
+      <div><b>Y ↗</b> Output cost (USD / 1M tokens, log)</div>
+      <div><b>Z ↑</b> Coding capability (SWE-bench %)</div>
     </div>
   </div>
 
@@ -309,8 +213,11 @@
     <h2>Providers</h2>
     <div id="legend-rows"></div>
     <div class="legend-divider"></div>
-    <h2 class="benchmark-heading">Benchmark</h2>
+    <h2>Benchmark</h2>
     <div class="shape-key"><span class="shape-glyph">●</span> SWE-bench Verified</div>
+    <div class="legend-divider"></div>
+    <h2>Overlays</h2>
+    <div id="overlay-rows"></div>
   </div>
 
   <div id="hint" class="panel">
@@ -319,8 +226,7 @@
 
   <div id="tooltip" class="panel"></div>
 
-  <!-- Model data + provider→logo registry (classic scripts so they also work from file://) -->
-  <script src="models.js?v=1"></script>
+  <!-- Provider→logo registry (classic script so it also works from file://) -->
   <script src="logos.js?v=2"></script>
 
   <script type="importmap">
@@ -336,8 +242,42 @@
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-    // Model data is provided by models.js (classic script) on `window`.
-    const { MODELS, PROVIDER_COLORS } = window;
+    // ----------------------------------------------------------------------
+    // DATA — parsed from swe_bench_verified_leaderboard_with_token_costs.csv
+    // Limited to models with a *Current* pricing status only:
+    //   • SWE-bench Verified results only.
+    //   • Preview, Deprecated, and Discontinued pricing excluded
+    //     (Qwen 3.6 Max, Gemini 3.x previews, Claude Opus 4 / 4.1).
+    //   • CSV does not provide release dates, so the `release` field is omitted.
+    // ----------------------------------------------------------------------
+    const MODELS = [
+      { provider: 'Anthropic', model: 'Claude Opus 4.7 (max)', score: 83.5, variant: 'Verified', input: 5.00, cached: 0.50, output: 25.00, status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5.5 (xhigh)', score: 80.6, variant: 'Verified', input: 5.00, cached: 0.50, output: 30.00, status: 'Available' },
+      { provider: 'Google', model: 'Gemini 3.5 Flash (high)', score: 79.3, variant: 'Verified', input: 1.50, cached: 0.15, output: 9.00, status: 'Available' },
+      { provider: 'Anthropic', model: 'Claude Opus 4.6 (no thinking)', score: 78.7, variant: 'Verified', input: 5.00, cached: 0.50, output: 25.00, status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5.4 (high)', score: 76.9, variant: 'Verified', input: 2.50, cached: 0.25, output: 15.00, status: 'Available' },
+      { provider: 'Moonshot', model: 'Kimi K2.6', score: 76.7, variant: 'Verified', input: 0.95, cached: 0.16, output: 4.00, status: 'Available' },
+      { provider: 'Anthropic', model: 'Claude Opus 4.5 (no thinking)', score: 76.7, variant: 'Verified', input: 5.00, cached: 0.50, output: 25.00, status: 'Available' },
+      { provider: 'Anthropic', model: 'Claude Sonnet 4.6', score: 75.2, variant: 'Verified', input: 3.00, cached: 0.30, output: 15.00, status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5.3 Codex (high)', score: 74.8, variant: 'Verified', input: 1.75, cached: 0.175, output: 14.00, status: 'Available' },
+      { provider: 'Z.ai (Zhipu AI)', model: 'GLM-5.1', score: 74.2, variant: 'Verified', input: 1.40, cached: 0.26, output: 4.40, status: 'Available' },
+      { provider: 'Moonshot', model: 'Kimi K2.5', score: 73.8, variant: 'Verified', input: 0.60, cached: 0.10, output: 3.00, status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5.2 (high)', score: 73.8, variant: 'Verified', input: 1.75, cached: 0.175, output: 14.00, status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5 (high)', score: 73.6, variant: 'Verified', input: 1.25, cached: 0.125, output: 10.00, status: 'Available' },
+      { provider: 'Z.ai (Zhipu AI)', model: 'GLM-5', score: 72.1, variant: 'Verified', input: 1.00, cached: 0.20, output: 3.20, status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5 (medium)', score: 71.5, variant: 'Verified', input: 1.25, cached: 0.125, output: 10.00, status: 'Available' },
+      { provider: 'Anthropic', model: 'Claude Sonnet 4.5 (no thinking)', score: 71.3, variant: 'Verified', input: 3.00, cached: 0.30, output: 15.00, status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5.1 (high)', score: 68.0, variant: 'Verified', input: 1.25, cached: 0.125, output: 10.00, status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5 mini (medium)', score: 64.7, variant: 'Verified', input: 0.25, cached: 0.025, output: 2.00, status: 'Available' },
+    ];
+
+    const PROVIDER_COLORS = {
+      'Anthropic':      '#d97757',
+      'OpenAI':         '#10a37f',
+      'Google':         '#4285f4',
+      'Moonshot':       '#a855f7',
+      'Z.ai (Zhipu AI)': '#ec4899',
+    };
 
     // ----------------------------------------------------------------------
     // SCALES
@@ -405,6 +345,71 @@
     const zScale = makeLinearScale(MODELS.map((m) => m.score));
 
     // ----------------------------------------------------------------------
+    // OPTIMAL VALUE FRONTIER — best observed coding score for a cost budget
+    //   budget = input^0.35 × output^0.65
+    // Because the chart's price axes are logarithmic, this is equivalent to a
+    // straight diagonal budget coordinate in world space:
+    //   log10(budget) = 0.35·log10(input) + 0.65·log10(output)
+    // The 65% output weight reflects coding workloads, where generated tokens
+    // usually dominate API spend. Sorting models by this budget and keeping only
+    // new score records produces the observed upper envelope. The rendered sheet
+    // linearly interpolates that envelope, so it reads as the best score one has
+    // actually seen by each cost level rather than an average model trend.
+    // ----------------------------------------------------------------------
+    const CODING_COST_WEIGHTS = { input: 0.35, output: 0.65 };
+
+    function logCodingBudget(input, output) {
+      return CODING_COST_WEIGHTS.input * Math.log10(input)
+        + CODING_COST_WEIGHTS.output * Math.log10(output);
+    }
+
+    function buildOptimalFrontier(models) {
+      const ranked = models
+        .map((m) => ({
+          model: m,
+          logBudget: logCodingBudget(m.input, m.output),
+          score: m.score,
+        }))
+        .sort((a, b) => a.logBudget - b.logBudget || b.score - a.score);
+
+      const points = [];
+      let bestScore = -Infinity;
+      for (const item of ranked) {
+        if (item.score > bestScore + 0.05) {
+          points.push(item);
+          bestScore = item.score;
+        }
+      }
+
+      return {
+        points,
+        minBudget: points[0].logBudget,
+        maxBudget: points[points.length - 1].logBudget,
+        minScore: Math.min(...points.map((p) => p.score)),
+        maxScore: Math.max(...points.map((p) => p.score)),
+      };
+    }
+
+    function scoreOnFrontier(frontier, logBudget) {
+      const points = frontier.points;
+      if (logBudget <= points[0].logBudget) return points[0].score;
+      const last = points[points.length - 1];
+      if (logBudget >= last.logBudget) return last.score;
+
+      for (let i = 1; i < points.length; i++) {
+        const prev = points[i - 1];
+        const next = points[i];
+        if (logBudget <= next.logBudget) {
+          const t = (logBudget - prev.logBudget) / (next.logBudget - prev.logBudget || 1);
+          return THREE.MathUtils.lerp(prev.score, next.score, t);
+        }
+      }
+      return last.score;
+    }
+
+    const optimalFrontier = buildOptimalFrontier(MODELS);
+
+    // ----------------------------------------------------------------------
     // SCENE
     // ----------------------------------------------------------------------
     const app = document.getElementById('app');
@@ -413,7 +418,8 @@
     scene.fog = new THREE.Fog(0x0b0e14, 260, 520);
 
     const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 2000);
-    camera.position.set(150, 130, 175);
+    camera.up.set(0, 0, 1);
+    camera.position.set(150, 175, 130);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -490,9 +496,10 @@
     axisGroup.add(axisLine(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, AXIS, 0), AXIS_HI.y));
     axisGroup.add(axisLine(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, AXIS), AXIS_HI.z));
 
-    // floor grid (X-Z plane at y=0)
+    // floor grid (X-Y plane at z=0; Z is the vertical score axis)
     const grid = new THREE.GridHelper(AXIS, 10, AXIS_COLOR, 0x20262f);
-    grid.position.set(AXIS / 2, 0, AXIS / 2);
+    grid.rotation.x = Math.PI / 2;
+    grid.position.set(AXIS / 2, AXIS / 2, 0);
     axisGroup.add(grid);
 
     // back walls (faint) for depth perception
@@ -501,10 +508,10 @@
       const pts = [];
       for (let i = 0; i <= div; i++) {
         const t = (i / div) * AXIS;
-        if (plane === 'xy') {
-          pts.push(new THREE.Vector3(0, t, 0), new THREE.Vector3(AXIS, t, 0));
-          pts.push(new THREE.Vector3(t, 0, 0), new THREE.Vector3(t, AXIS, 0));
-        } else { // zy
+        if (plane === 'xz') {
+          pts.push(new THREE.Vector3(0, 0, t), new THREE.Vector3(AXIS, 0, t));
+          pts.push(new THREE.Vector3(t, 0, 0), new THREE.Vector3(t, 0, AXIS));
+        } else { // yz
           pts.push(new THREE.Vector3(0, t, 0), new THREE.Vector3(0, t, AXIS));
           pts.push(new THREE.Vector3(0, 0, t), new THREE.Vector3(0, AXIS, t));
         }
@@ -512,8 +519,8 @@
       const g = new THREE.BufferGeometry().setFromPoints(pts);
       return new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x1a1f29 }));
     }
-    axisGroup.add(wallGrid('xy'));
-    axisGroup.add(wallGrid('zy'));
+    axisGroup.add(wallGrid('xz'));
+    axisGroup.add(wallGrid('yz'));
 
     function fmtMoney(v) {
       if (v >= 1) return '$' + (v % 1 === 0 ? v.toFixed(0) : v.toFixed(2));
@@ -552,8 +559,185 @@
       axisGroup.add(s);
     }
     addTitle('Input $/1M →', new THREE.Vector3(AXIS / 2, -16, 0), '#ff9a8d');
-    addTitle('Output $/1M ↑', new THREE.Vector3(-20, AXIS / 2, 0), '#8dffb4');
-    addTitle('SWE-bench % ↗', new THREE.Vector3(-14, -10, AXIS / 2), '#9ec5ff');
+    addTitle('Output $/1M ↗', new THREE.Vector3(-20, AXIS / 2, 0), '#8dffb4');
+    addTitle('SWE-bench % ↑', new THREE.Vector3(-14, -10, AXIS / 2), '#9ec5ff');
+
+    // ----------------------------------------------------------------------
+    // OPTIMAL VALUE SLOPE — translucent frontier ribbon + faint guide lines.
+    // The ribbon follows the cost/score frontier through the models that set new
+    // score records. It is intentionally narrow and depth-write-free, so it adds
+    // a visible 3D slope without turning into a wall in front of the data.
+    // ----------------------------------------------------------------------
+    const slopeGroup = new THREE.Group();
+    slopeGroup.name = 'optimalValueSlope';
+    scene.add(slopeGroup);
+
+    {
+      const xSpan = xScale.max - xScale.min;
+      const ySpan = yScale.max - yScale.min;
+      const logInputToWorld = (v) => ((v - xScale.min) / xSpan) * AXIS;
+      const logOutputToWorld = (v) => ((v - yScale.min) / ySpan) * AXIS;
+
+      const frontierPoints = optimalFrontier.points.map(({ model, logBudget, score }) => ({
+        model,
+        logBudget,
+        logInput: Math.log10(model.input),
+        logOutput: Math.log10(model.output),
+        score,
+      }));
+
+      const frontierSampleAt = (logBudget) => {
+        if (logBudget <= frontierPoints[0].logBudget) return frontierPoints[0];
+        const last = frontierPoints[frontierPoints.length - 1];
+        if (logBudget >= last.logBudget) return last;
+
+        for (let i = 1; i < frontierPoints.length; i++) {
+          const prev = frontierPoints[i - 1];
+          const next = frontierPoints[i];
+          if (logBudget <= next.logBudget) {
+            const t = (logBudget - prev.logBudget) / (next.logBudget - prev.logBudget || 1);
+            return {
+              model: null,
+              logBudget,
+              logInput: THREE.MathUtils.lerp(prev.logInput, next.logInput, t),
+              logOutput: THREE.MathUtils.lerp(prev.logOutput, next.logOutput, t),
+              score: scoreOnFrontier(optimalFrontier, logBudget),
+            };
+          }
+        }
+        return last;
+      };
+
+      // Blue → green → gold ramp (t: 1 = higher optimal score).
+      const slopeColor = (t) => {
+        const clamped = THREE.MathUtils.clamp(t, 0, 1);
+        const stops = [
+          new THREE.Color('#38bdf8'),
+          new THREE.Color('#8ddf6f'),
+          new THREE.Color('#f7d154'),
+        ];
+        if (clamped < 0.5) return stops[0].clone().lerp(stops[1], clamped * 2);
+        return stops[1].clone().lerp(stops[2], (clamped - 0.5) * 2);
+      };
+
+      // Keep the surface inside the cube even at unrealistic off-diagonal corners.
+      const clipPlanes = [
+        new THREE.Plane(new THREE.Vector3(0, 0, 1), 0),
+        new THREE.Plane(new THREE.Vector3(0, 0, -1), AXIS),
+      ];
+      renderer.localClippingEnabled = true;
+
+      // --- Filled ribbon ---
+      const SEG = 56;
+      const CROSS = 4;
+      const stride = CROSS + 1;
+      const halfWidth = 4.8;
+      const centers = [];
+      const ribbonRows = [];
+      const positions = [];
+      const colors = [];
+      const indices = [];
+
+      for (let i = 0; i <= SEG; i++) {
+        const t = i / SEG;
+        const logBudget = THREE.MathUtils.lerp(optimalFrontier.minBudget, optimalFrontier.maxBudget, t);
+        const sample = frontierSampleAt(logBudget);
+        centers.push(new THREE.Vector3(
+          logInputToWorld(sample.logInput),
+          logOutputToWorld(sample.logOutput),
+          zScale.toWorld(sample.score),
+        ));
+      }
+
+      for (let i = 0; i <= SEG; i++) {
+        const prev = centers[Math.max(0, i - 1)];
+        const next = centers[Math.min(SEG, i + 1)];
+        const tangent = new THREE.Vector2(next.x - prev.x, next.y - prev.y);
+        if (tangent.lengthSq() < 1e-6) tangent.set(1, 0);
+        tangent.normalize();
+        const normal = new THREE.Vector2(-tangent.y, tangent.x);
+        const score = zScale.min + (centers[i].z / AXIS) * (zScale.max - zScale.min);
+        const scoreT = (score - optimalFrontier.minScore) / (optimalFrontier.maxScore - optimalFrontier.minScore || 1);
+
+        const row = [];
+        for (let j = 0; j <= CROSS; j++) {
+          const sideT = (j / CROSS) * 2 - 1;
+          const edgeFade = Math.abs(sideT);
+          const p = centers[i].clone();
+          p.x += normal.x * sideT * halfWidth;
+          p.y += normal.y * sideT * halfWidth;
+          p.z -= edgeFade * 1.2;
+          row.push(p);
+          positions.push(p.x, p.y, p.z);
+          const col = slopeColor(scoreT).lerp(new THREE.Color('#0b0e14'), edgeFade * 0.28);
+          colors.push(col.r, col.g, col.b);
+        }
+        ribbonRows.push(row);
+      }
+
+      for (let i = 0; i < SEG; i++) {
+        for (let j = 0; j < CROSS; j++) {
+          const a = i * stride + j;
+          const b = (i + 1) * stride + j;
+          const c = i * stride + (j + 1);
+          const d = (i + 1) * stride + (j + 1);
+          indices.push(a, b, d, a, d, c);
+        }
+      }
+      const fillGeo = new THREE.BufferGeometry();
+      fillGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      fillGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      fillGeo.setIndex(indices);
+      const fillMat = new THREE.MeshBasicMaterial({
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.22,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        clippingPlanes: clipPlanes,
+      });
+      const fillMesh = new THREE.Mesh(fillGeo, fillMat);
+      fillMesh.renderOrder = -2;
+      slopeGroup.add(fillMesh);
+
+      // --- Faint guide lines across and along the ribbon ---
+      const wirePts = [];
+      for (const j of [0, Math.floor(CROSS / 2), CROSS]) {
+        for (let i = 0; i < SEG; i++) {
+          wirePts.push(ribbonRows[i][j], ribbonRows[i + 1][j]);
+        }
+      }
+      for (let i = 0; i <= SEG; i += 8) wirePts.push(ribbonRows[i][0], ribbonRows[i][CROSS]);
+      const wireGeo = new THREE.BufferGeometry().setFromPoints(wirePts);
+      const wireMat = new THREE.LineBasicMaterial({
+        color: 0xbcd2ff,
+        transparent: true,
+        opacity: 0.2,
+        depthWrite: false,
+        clippingPlanes: clipPlanes,
+      });
+      const wire = new THREE.LineSegments(wireGeo, wireMat);
+      wire.renderOrder = -1;
+      slopeGroup.add(wire);
+
+      const ridgePts = frontierPoints.map(({ model }) => new THREE.Vector3(
+        xScale.toWorld(model.input),
+        yScale.toWorld(model.output),
+        zScale.toWorld(model.score),
+      ));
+      if (ridgePts.length > 1) {
+        const ridgeGeo = new THREE.BufferGeometry().setFromPoints(ridgePts);
+        const ridgeMat = new THREE.LineBasicMaterial({
+          color: 0xf7d154,
+          transparent: true,
+          opacity: 0.7,
+          depthWrite: false,
+        });
+        const ridge = new THREE.Line(ridgeGeo, ridgeMat);
+        ridge.renderOrder = 1;
+        slopeGroup.add(ridge);
+      }
+    }
 
     // ----------------------------------------------------------------------
     // POINTS
@@ -585,7 +769,7 @@
 
       // drop line to floor for spatial grounding
       const dropGeo = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(mesh.position.x, 0, mesh.position.z),
+        new THREE.Vector3(mesh.position.x, mesh.position.y, 0),
         mesh.position.clone(),
       ]);
       const drop = new THREE.Line(dropGeo, new THREE.LineBasicMaterial({
@@ -697,47 +881,14 @@
     for (const m of MODELS) providerCounts[m.provider] = (providerCounts[m.provider] || 0) + 1;
     const hiddenProviders = new Set();
 
-    // Build a circular provider badge: the brand color disc with the white
-    // brand logo on top (same source as the balls, via logos.js). Falls back
-    // to the provider initial if no logo can be loaded.
-    function buildLegendIcon(prov) {
-      const color = PROVIDER_COLORS[prov] || '#7a8595';
-      const cfg = LOGO_REG[prov] || LOGO_FALLBACK;
-      const icon = document.createElement('span');
-      icon.className = 'swatch';
-      icon.style.background = color;
-      const url = cfg.url || (cfg.slug ? `https://cdn.simpleicons.org/${cfg.slug}/white` : null);
-      if (cfg.svg || url) {
-        const img = document.createElement('img');
-        img.alt = '';
-        img.src = cfg.svg
-          ? 'data:image/svg+xml;utf8,' + encodeURIComponent(cfg.svg)
-          : url;
-        img.addEventListener('error', () => {
-          img.remove();
-          icon.textContent = cfg.label || prov.charAt(0);
-        });
-        icon.appendChild(img);
-      } else {
-        icon.textContent = cfg.label || prov.charAt(0);
-      }
-      return icon;
-    }
-
     for (const prov of Object.keys(PROVIDER_COLORS)) {
       if (!providerCounts[prov]) continue;
       const row = document.createElement('div');
       row.className = 'legend-row';
-      row.title = prov;
-      row.appendChild(buildLegendIcon(prov));
-      const name = document.createElement('span');
-      name.className = 'name';
-      name.textContent = prov;
-      row.appendChild(name);
-      const count = document.createElement('span');
-      count.className = 'count';
-      count.textContent = providerCounts[prov];
-      row.appendChild(count);
+      row.innerHTML = `
+        <span class="swatch" style="background:${PROVIDER_COLORS[prov]}"></span>
+        <span class="name">${prov}</span>
+        <span class="count">${providerCounts[prov]}</span>`;
       row.addEventListener('click', () => {
         if (hiddenProviders.has(prov)) hiddenProviders.delete(prov);
         else hiddenProviders.add(prov);
@@ -747,6 +898,27 @@
       legendRows.appendChild(row);
     }
 
+    // Optimal value slope overlay toggle (on by default).
+    const overlayRows = document.getElementById('overlay-rows');
+    if (overlayRows) {
+      const planeRow = document.createElement('div');
+      planeRow.className = 'legend-row';
+      planeRow.innerHTML = `
+        <span class="swatch swatch-plane"></span>
+        <span class="name">Optimal value slope</span>`;
+      planeRow.addEventListener('click', () => {
+        slopeGroup.visible = !slopeGroup.visible;
+        planeRow.classList.toggle('off', !slopeGroup.visible);
+      });
+      overlayRows.appendChild(planeRow);
+
+      const planeHint = document.createElement('div');
+      planeHint.className = 'overlay-hint';
+      planeHint.innerHTML =
+        `Upper envelope of SWE-bench score by coding-weighted cost: input<sup>0.35</sup> × output<sup>0.65</sup>. Gold line marks models that set a new optimum.`;
+      overlayRows.appendChild(planeHint);
+    }
+
     function applyVisibility() {
       for (const mesh of pointMeshes) {
         const hidden = hiddenProviders.has(mesh.userData.model.provider);
@@ -754,14 +926,6 @@
         mesh.userData.drop.visible = !hidden;
       }
     }
-
-    // Collapsible header (mobile): tap the info icon to expand/collapse.
-    const header = document.getElementById('header');
-    const headerToggle = document.getElementById('header-toggle');
-    headerToggle.addEventListener('click', () => {
-      const expanded = header.classList.toggle('expanded');
-      headerToggle.setAttribute('aria-expanded', String(expanded));
-    });
 
     // ----------------------------------------------------------------------
     // HOVER (raycaster) + TOOLTIP

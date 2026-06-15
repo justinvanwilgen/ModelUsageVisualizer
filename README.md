@@ -9,10 +9,18 @@ Each point in the 3D space is an LLM, positioned along three axes:
 | Axis | Metric |
 |------|--------|
 | **X →** | Input cost (USD / 1M tokens, log scale) |
-| **Y ↑** | Output cost (USD / 1M tokens, log scale) |
-| **Z ↗** | Coding capability (SWE-bench score %) |
+| **Y ↗** | Output cost (USD / 1M tokens, log scale) |
+| **Z ↑** | Coding capability (SWE-bench score %) |
 
 Points are colored by provider. All models use **● SWE-bench Verified** results.
+
+An optional **Optimal value slope** overlay projects the current best cost/score frontier into the 3D scene. It uses a coding-weighted price budget:
+
+```text
+effective budget = input_cost^0.35 * output_cost^0.65
+```
+
+The output-heavy weighting reflects coding workloads, where generated tokens usually dominate total API spend. Models are sorted by that effective budget, and the overlay projects a translucent ribbon through the models that set new SWE-bench score records at higher budget levels.
 
 ## Controls
 
@@ -23,6 +31,7 @@ Points are colored by provider. All models use **● SWE-bench Verified** result
 | Right-drag | Pan |
 | Hover | Show model details |
 | Click legend row | Toggle provider visibility |
+| Click overlay row | Toggle optimal value slope |
 
 ## Providers covered
 
