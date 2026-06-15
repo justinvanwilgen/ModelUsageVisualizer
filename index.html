@@ -122,20 +122,6 @@
     font-size: 13px;
   }
 
-  /* Warning */
-  #warning {
-    bottom: 16px;
-    left: 16px;
-    padding: 10px 13px;
-    max-width: 340px;
-    font-size: 11.5px;
-    line-height: 1.5;
-    color: #ffd9a8;
-    border-color: rgba(255, 180, 90, 0.25);
-    background: rgba(60, 40, 15, 0.7);
-  }
-  #warning b { color: #ffc777; }
-
   /* Controls hint */
   #hint {
     bottom: 16px;
@@ -214,14 +200,8 @@
     <h2>Providers</h2>
     <div id="legend-rows"></div>
     <div class="legend-divider"></div>
-    <h2>Benchmark variant</h2>
+    <h2>Benchmark</h2>
     <div class="shape-key"><span class="shape-glyph">●</span> SWE-bench Verified</div>
-    <div class="shape-key"><span class="shape-glyph">◆</span> SWE-bench Pro</div>
-  </div>
-
-  <div id="warning" class="panel">
-    <b>⚠ Scores are not directly comparable.</b>
-    The capability axis mixes SWE-bench <b>Pro</b> and <b>Verified</b> results (shown as different shapes), which use different task sets and harnesses. Treat cross-variant comparisons with caution.
   </div>
 
   <div id="hint" class="panel">
@@ -244,43 +224,40 @@
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
     // ----------------------------------------------------------------------
-    // DATA — parsed from ai_models_swebench_token_pricing_2026-06-15.csv
-    // Models missing required fields (input/output cost or primary score) are
-    // excluded. MAI-Code-1-Flash is omitted (no public pricing).
+    // DATA — parsed from swe_bench_verified_leaderboard_with_token_costs.csv
+    // Limited to models with a *Current* pricing status only:
+    //   • SWE-bench Verified results only.
+    //   • Preview, Deprecated, and Discontinued pricing excluded
+    //     (Qwen 3.6 Max, Gemini 3.x previews, Claude Opus 4 / 4.1).
+    //   • CSV does not provide release dates, so the `release` field is omitted.
     // ----------------------------------------------------------------------
     const MODELS = [
-      { provider: 'Anthropic', model: 'Claude Fable 5', score: 80.0, variant: 'Pro', input: 10.00, cached: 1.00, output: 50.00, release: '2026-06-09', status: 'Suspended / unavailable' },
-      { provider: 'Anthropic', model: 'Claude Opus 4.8', score: 69.2, variant: 'Pro', input: 5.00, cached: 0.50, output: 25.00, release: '2026-05-28', status: 'Available' },
-      { provider: 'Anthropic', model: 'Claude Opus 4.7', score: 64.3, variant: 'Pro', input: 5.00, cached: 0.50, output: 25.00, release: '2026-04-16', status: 'Available' },
-      { provider: 'Anthropic', model: 'Claude Opus 4.6', score: 80.8, variant: 'Verified', input: 5.00, cached: 0.50, output: 25.00, release: '2026-02-05', status: 'Available' },
-      { provider: 'Anthropic', model: 'Claude Sonnet 4.6', score: 79.6, variant: 'Verified', input: 3.00, cached: 0.30, output: 15.00, release: '2026-02-17', status: 'Available' },
-      { provider: 'Anthropic', model: 'Claude Opus 4.5', score: 80.9, variant: 'Verified', input: 5.00, cached: 0.50, output: 25.00, release: '2025-11-24', status: 'Available' },
-      { provider: 'Anthropic', model: 'Claude Sonnet 4.5', score: 77.2, variant: 'Verified', input: 3.00, cached: 0.30, output: 15.00, release: '2025-09-29', status: 'Available' },
-      { provider: 'Anthropic', model: 'Claude Haiku 4.5', score: 73.3, variant: 'Verified', input: 1.00, cached: 0.10, output: 5.00, release: '2025-10-15', status: 'Available' },
-      { provider: 'OpenAI', model: 'GPT-5.5', score: 58.6, variant: 'Pro', input: 5.00, cached: 0.50, output: 30.00, release: '2026-04-23', status: 'Available' },
-      { provider: 'OpenAI', model: 'GPT-5.4', score: 57.7, variant: 'Pro', input: 2.50, cached: 0.25, output: 15.00, release: '2026-03-05', status: 'Available' },
-      { provider: 'OpenAI', model: 'GPT-5.4 mini', score: 54.4, variant: 'Pro', input: 0.75, cached: 0.075, output: 4.50, release: '2026-03-17', status: 'Available' },
-      { provider: 'OpenAI', model: 'GPT-5.3-Codex', score: 56.8, variant: 'Pro', input: 1.75, cached: 0.175, output: 14.00, release: '2026-02-05', status: 'Available' },
-      { provider: 'OpenAI', model: 'GPT-5.2', score: 55.6, variant: 'Pro', input: 1.75, cached: 0.175, output: 14.00, release: '2025-12-11', status: 'Available' },
-      { provider: 'OpenAI', model: 'GPT-5', score: 74.9, variant: 'Verified', input: 1.25, cached: 0.125, output: 10.00, release: '2025-08-07', status: 'Available' },
-      { provider: 'OpenAI', model: 'GPT-5 mini', score: 71.0, variant: 'Verified', input: 0.25, cached: 0.025, output: 2.00, release: '2025-08-07', status: 'Available' },
-      { provider: 'Google', model: 'Gemini 3.5 Flash', score: 55.1, variant: 'Pro', input: 1.50, cached: 0.15, output: 9.00, release: '2026-05-19', status: 'Preview' },
-      { provider: 'Google', model: 'Gemini 3.1 Pro Preview', score: 54.2, variant: 'Pro', input: 2.00, cached: 0.20, output: 12.00, release: '2026-02-19', status: 'Preview' },
-      { provider: 'Google', model: 'Gemini 3 Flash Preview', score: 49.6, variant: 'Pro', input: 0.50, cached: 0.05, output: 3.00, release: '2025-12-17', status: 'Preview' },
-      { provider: 'Moonshot AI', model: 'Kimi K2.6', score: 58.6, variant: 'Pro', input: 0.95, cached: 0.16, output: 4.00, release: '2026-04-20', status: 'Available' },
-      { provider: 'Moonshot AI', model: 'Kimi K2.5', score: 50.7, variant: 'Pro', input: 0.60, cached: 0.10, output: 3.00, release: '2026-01-27', status: 'Available' },
-      { provider: 'MiniMax', model: 'MiniMax M2.7', score: 56.22, variant: 'Pro', input: 0.30, cached: 0.06, output: 1.20, release: '2026-03-18', status: 'Available' },
-      { provider: 'MiniMax', model: 'MiniMax M2.5', score: 80.2, variant: 'Verified', input: 0.30, cached: 0.03, output: 1.20, release: '2026-02-12', status: 'Legacy; available' },
-      { provider: 'xAI', model: 'Grok Code Fast 1', score: 70.8, variant: 'Verified', input: 0.20, cached: 0.02, output: 1.50, release: '2025-08-28', status: 'Retired 2026-05-15' },
+      { provider: 'Anthropic', model: 'Claude Opus 4.7 (max)', score: 83.5, variant: 'Verified', input: 5.00, cached: 0.50, output: 25.00, status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5.5 (xhigh)', score: 80.6, variant: 'Verified', input: 5.00, cached: 0.50, output: 30.00, status: 'Available' },
+      { provider: 'Google', model: 'Gemini 3.5 Flash (high)', score: 79.3, variant: 'Verified', input: 1.50, cached: 0.15, output: 9.00, status: 'Available' },
+      { provider: 'Anthropic', model: 'Claude Opus 4.6 (no thinking)', score: 78.7, variant: 'Verified', input: 5.00, cached: 0.50, output: 25.00, status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5.4 (high)', score: 76.9, variant: 'Verified', input: 2.50, cached: 0.25, output: 15.00, status: 'Available' },
+      { provider: 'Moonshot', model: 'Kimi K2.6', score: 76.7, variant: 'Verified', input: 0.95, cached: 0.16, output: 4.00, status: 'Available' },
+      { provider: 'Anthropic', model: 'Claude Opus 4.5 (no thinking)', score: 76.7, variant: 'Verified', input: 5.00, cached: 0.50, output: 25.00, status: 'Available' },
+      { provider: 'Anthropic', model: 'Claude Sonnet 4.6', score: 75.2, variant: 'Verified', input: 3.00, cached: 0.30, output: 15.00, status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5.3 Codex (high)', score: 74.8, variant: 'Verified', input: 1.75, cached: 0.175, output: 14.00, status: 'Available' },
+      { provider: 'Z.ai (Zhipu AI)', model: 'GLM-5.1', score: 74.2, variant: 'Verified', input: 1.40, cached: 0.26, output: 4.40, status: 'Available' },
+      { provider: 'Moonshot', model: 'Kimi K2.5', score: 73.8, variant: 'Verified', input: 0.60, cached: 0.10, output: 3.00, status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5.2 (high)', score: 73.8, variant: 'Verified', input: 1.75, cached: 0.175, output: 14.00, status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5 (high)', score: 73.6, variant: 'Verified', input: 1.25, cached: 0.125, output: 10.00, status: 'Available' },
+      { provider: 'Z.ai (Zhipu AI)', model: 'GLM-5', score: 72.1, variant: 'Verified', input: 1.00, cached: 0.20, output: 3.20, status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5 (medium)', score: 71.5, variant: 'Verified', input: 1.25, cached: 0.125, output: 10.00, status: 'Available' },
+      { provider: 'Anthropic', model: 'Claude Sonnet 4.5 (no thinking)', score: 71.3, variant: 'Verified', input: 3.00, cached: 0.30, output: 15.00, status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5.1 (high)', score: 68.0, variant: 'Verified', input: 1.25, cached: 0.125, output: 10.00, status: 'Available' },
+      { provider: 'OpenAI', model: 'GPT-5 mini (medium)', score: 64.7, variant: 'Verified', input: 0.25, cached: 0.025, output: 2.00, status: 'Available' },
     ];
 
     const PROVIDER_COLORS = {
-      'Anthropic':   '#d97757',
-      'OpenAI':      '#10a37f',
-      'Google':      '#4285f4',
-      'Moonshot AI': '#a855f7',
-      'MiniMax':     '#f5b301',
-      'xAI':         '#e6e9ef',
+      'Anthropic':      '#d97757',
+      'OpenAI':         '#10a37f',
+      'Google':         '#4285f4',
+      'Moonshot':       '#a855f7',
+      'Z.ai (Zhipu AI)': '#ec4899',
     };
 
     // ----------------------------------------------------------------------
@@ -607,7 +584,7 @@
         : `<div class="tt-status">⚠ ${m.status}</div>`;
       tooltip.innerHTML = `
         <div class="tt-name" style="color:${color}">${m.model}</div>
-        <div class="tt-provider">${m.provider} · ${fmtDate(m.release)}</div>
+        <div class="tt-provider">${m.provider}</div>
         <div class="tt-grid">
           <span class="k">Coding score</span><span class="v">${m.score.toFixed(1)}%</span>
           <span class="k">Input</span><span class="v">${fmtMoney(m.input)} / 1M</span>
