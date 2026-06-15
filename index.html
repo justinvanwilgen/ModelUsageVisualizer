@@ -210,6 +210,9 @@
 
   <div id="tooltip" class="panel"></div>
 
+  <!-- Provider→logo registry (classic script so it also works from file://) -->
+  <script src="logos.js?v=2"></script>
+
   <script type="importmap">
   {
     "imports": {
@@ -516,6 +519,98 @@
       pointsGroup.add(drop);
       pointsGroup.add(mesh);
       pointMeshes.push(mesh);
+    }
+
+    // ----------------------------------------------------------------------
+    // COMPANY LOGOS ON BALLS
+    // Each ball gets a camera-facing "coin" textured with the provider's logo.
+    // Logos are looked up by provider from the registry in logos.js, so new
+    // data points are mapped automatically. Real brand art is fetched from the
+    // Simple Icons CDN; until it loads (or if it fails) a colored disc with the
+    // provider initial is shown.
+    // ----------------------------------------------------------------------
+    const LOGO_REG = window.PROVIDER_LOGOS || {};
+    const LOGO_FALLBACK = window.PROVIDER_LOGOS_DEFAULT || { slug: null, label: '?' };
+    const logoTextures = {}; // provider -> { canvas, ctx, texture }
+
+    function drawLogoDisc(ctx, size, color) {
+      const r = size / 2;
+      ctx.clearRect(0, 0, size, size);
+      ctx.beginPath();
+      ctx.arc(r, r, r * 0.95, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.lineWidth = size * 0.05;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+      ctx.stroke();
+    }
+
+    function drawFallbackLabel(ctx, size, label, color) {
+      drawLogoDisc(ctx, size, color);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `700 ${Math.round(size * 0.5)}px -apple-system, "Segoe UI", Roboto, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, size / 2, size * 0.54);
+    }
+
+    async function upgradeToRealLogo(cfg, color, canvas, ctx, texture) {
+      try {
+        let svgText = cfg.svg;
+        if (!svgText) {
+          const url = cfg.url
+            || (cfg.slug ? `https://cdn.simpleicons.org/${cfg.slug}/white` : null);
+          if (!url) return; // no source → keep fallback label
+          const res = await fetch(url);
+          if (!res.ok) throw new Error('logo not found');
+          svgText = await res.text();
+        }
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(svgText);
+        });
+        const size = canvas.width;
+        drawLogoDisc(ctx, size, color);
+        const d = size * 0.56;
+        ctx.drawImage(img, (size - d) / 2, (size - d) / 2, d, d);
+        texture.needsUpdate = true;
+      } catch (err) {
+        // Keep the fallback initial — nothing else to do.
+      }
+    }
+
+    function getLogoTexture(provider) {
+      if (logoTextures[provider]) return logoTextures[provider].texture;
+      const size = 256;
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const color = PROVIDER_COLORS[provider] || '#7a8595';
+      const cfg = LOGO_REG[provider] || LOGO_FALLBACK;
+      drawFallbackLabel(ctx, size, cfg.label || '?', color);
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.anisotropy = 4;
+      logoTextures[provider] = { canvas, ctx, texture };
+      upgradeToRealLogo(cfg, color, canvas, ctx, texture);
+      return texture;
+    }
+
+    for (const mesh of pointMeshes) {
+      const texture = getLogoTexture(mesh.userData.model.provider);
+      const spriteMat = new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+      });
+      const sprite = new THREE.Sprite(spriteMat);
+      sprite.scale.set(5.4, 5.4, 1); // covers the sphere (r=2.4) with a thin rim
+      sprite.renderOrder = 3;
+      mesh.add(sprite);          // child → follows position, scale & visibility
+      mesh.userData.logoSprite = sprite;
     }
 
     // ----------------------------------------------------------------------
